@@ -1,0 +1,66 @@
+trigger:
+  branches:
+    include:
+      - main
+
+stages:
+  # ---------------- DEV Stage ----------------
+  - stage: DEV
+    displayName: "Deploy to DEV"
+    jobs:
+      - job: BuildAndDeployDev
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - checkout: self
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '20.x'
+          - script: |
+              npm install
+              npm run build
+            displayName: 'Install dependencies & build'
+          - task: AzureWebApp@1
+            inputs:
+              azureSubscription: 'YOUR_AZURE_SERVICE_CONNECTION'
+              appType: 'webAppLinux'
+              appName: 'nestjs-dev-app'
+              package: '$(System.DefaultWorkingDirectory)'
+
+  # ---------------- TEST Stage ----------------
+  - stage: TEST
+    displayName: "Deploy to TEST"
+    dependsOn: DEV
+    condition: succeeded()
+    jobs:
+      - job: DeployTest
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - checkout: self
+          - script: echo "Deploying to TEST environment..."
+          - task: AzureWebApp@1
+            inputs:
+              azureSubscription: 'YOUR_AZURE_SERVICE_CONNECTION'
+              appType: 'webAppLinux'
+              appName: 'nestjs-test-app'
+              package: '$(System.DefaultWorkingDirectory)'
+
+  # ---------------- PROD Stage ----------------
+  - stage: PROD
+    displayName: "Deploy to PROD"
+    dependsOn: TEST
+    condition: succeeded()
+    jobs:
+      - job: DeployProd
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - checkout: self
+          - script: echo "Deploying to PROD environment..."
+          - task: AzureWebApp@1
+            inputs:
+              azureSubscription: 'YOUR_AZURE_SERVICE_CONNECTION'
+              appType: 'webAppLinux'
+              appName: 'nestjs-prod-app'
+              package: '$(System.DefaultWorkingDirectory)'
